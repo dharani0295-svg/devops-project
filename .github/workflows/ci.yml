@@ -17,6 +17,7 @@ jobs:
         run: docker build -t devops-web-app .
 
       - name: Deploy to EC2
+      shell: bash
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
