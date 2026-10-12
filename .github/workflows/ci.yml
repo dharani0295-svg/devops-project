@@ -1,9 +1,14 @@
+```yaml
 name: Docker CI/CD
 
 on:
   push:
     branches:
       - main
+
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   build-and-deploy:
@@ -13,22 +18,37 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::391894612466:role/GitHubActions-Deploy-Role
+          aws-region: us-east-1
+
       - name: Build Docker image
         run: docker build -t devops-web-app .
 
-      - name: Deploy to EC2
+      - name: Deploy to EC2 with SSM
         shell: bash
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
-          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
           set -e
-          echo "Preparing SSH..."
-          mkdir -p ~/.ssh
-          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/ec2_key
-          chmod 600 ~/.ssh/ec2_key
-          echo "Checking EC2 SSH connectivity..."
-          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
-          echo "Connecting to EC2..."
-          ssh -i ~/.ssh/ec2_key "$EC2_USERNAME@$EC2_HOST" 'cd ~/devops-project && ./deploy.sh'
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "i-0a2c56ca9d66f932b" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy devops-web-app from GitHub Actions" \
+            --parameters 'commands=["cd /home/ubuntu/devops-project && ./deploy.sh"]' \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM command ID: $COMMAND_ID"
+
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "i-0a2c56ca9d66f932b"
+
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "i-0a2c56ca9d66f932b" \
+            --query "StandardOutputContent" \
+            --output text
+```
