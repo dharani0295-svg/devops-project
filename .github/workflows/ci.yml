@@ -1,22 +1,22 @@
 name: Docker CI/CD
 
 on:
-push:
-branches:
-- main
+  push:
+    branches:
+      - main
 
 permissions:
-contents: read
-id-token: write
+  contents: read
+  id-token: write
 
 jobs:
-build-and-deploy:
-runs-on: ubuntu-latest
+  build-and-deploy:
+    runs-on: ubuntu-latest
 steps:
 - name: Checkout code
 uses: actions/checkout@v4
 
-```
+
   - name: Configure AWS credentials
     uses: aws-actions/configure-aws-credentials@v4
     with:
@@ -49,4 +49,4 @@ uses: actions/checkout@v4
         --instance-id "i-0a2c56ca9d66f932b" \
         --query "StandardOutputContent" \
         --output text
-```
+
